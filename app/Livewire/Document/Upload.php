@@ -11,6 +11,8 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Smalot\PdfParser\Parser;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\DocumentExport;
 
 class Upload extends Component
 {
@@ -217,5 +219,11 @@ class Upload extends Component
         return view('livewire.document.upload', [
             'entities' => $this->getEntities(),
         ])->layout('layouts.base');
+    }
+
+    public function exportToExcel()
+    {
+        $entities = Entities::with(['programs.activities.subActivities.items'])->get();
+        return Excel::download(new DocumentExport($entities), 'documents.xlsx');
     }
 }
