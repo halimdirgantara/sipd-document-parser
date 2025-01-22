@@ -118,12 +118,12 @@ class Upload extends Component
 
     protected function parseItems($text, $subActivityId)
     {
-        // First, split the text into sections by account code
-        preg_match_all('/(\d+\.\d+\.\d+\.\d+\.\d+)[^\n]*\n(?:(?!\d+\.\d+\.\d+\.\d+\.\d+)[\s\S])*?(?=\d+\.\d+\.\d+\.\d+\.\d+|\z)/m', $text, $sections, PREG_SET_ORDER);
+        // Keep detailed account code but simplify section matching
+        preg_match_all('/(\d+\.\d+\.\d+\.\d+\.\d+\.\d+)[^\n]*\n(?:(?!\d+\.\d+\.\d+\.\d+\.\d+)[\s\S])*?(?=\d+\.\d+\.\d+\.\d+\.\d+|\z)/m', $text, $sections, PREG_SET_ORDER);
         
         foreach ($sections as $section) {
             $fullText = $section[0];
-            $accountCode = $section[1];
+            $accountCode = $section[1];  // Keeps full account code like 5.1.02.04.01.0003
             
             // Regular items pattern (with tax)
             preg_match_all('/([^:\n]+?)\s+Spesifikasi : ([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*[^0-9\n]+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches1, PREG_SET_ORDER);
@@ -150,7 +150,7 @@ class Upload extends Component
                 Item::create([
                     'sub_activity_id' => $subActivityId,
                     'account_code' => $accountCode,
-                    'name' => $name,
+                    'name' => $name,  // Back to using original name from the match
                     'specification' => trim($match[2]),
                     'quantity' => $quantity,
                     'unit' => trim($match[4]),
@@ -165,7 +165,6 @@ class Upload extends Component
     protected function createItem($match, $accountCode, $subActivityId, $hasTax)
     {
         $name = trim($match[1]);
-        // Skip if the line contains "[ # ]" or "[ - ]" as these are headers
         if (strpos($name, '[ # ]') !== false || strpos($name, '[ - ]') !== false) {
             return;
         }
@@ -177,7 +176,7 @@ class Upload extends Component
         Item::create([
             'sub_activity_id' => $subActivityId,
             'account_code' => $accountCode,
-            'name' => $name,
+            'name' => $name,  // Back to using original name from the match
             'specification' => trim($match[2]),
             'quantity' => $quantity,
             'unit' => $match[4],
