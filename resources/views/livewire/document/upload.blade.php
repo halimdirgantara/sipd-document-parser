@@ -120,6 +120,7 @@
                                                     <tr>
                                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account Code</th>
                                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specification</th>
                                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
                                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
@@ -132,6 +133,7 @@
                                                         <tr>
                                                             <td class="px-6 py-4 whitespace-nowrap">{{ $item->account_code }}</td>
                                                             <td class="px-6 py-4 whitespace-nowrap">{{ $item->name }}</td>
+                                                            <td class="px-6 py-4 whitespace-nowrap">{{ $item->specification }}</td>
                                                             <td class="px-6 py-4 whitespace-nowrap">{{ $item->quantity }}</td>
                                                             <td class="px-6 py-4 whitespace-nowrap">{{ $item->unit }}</td>
                                                             <td class="px-6 py-4 whitespace-nowrap">{{ number_format($item->price, 2) }}</td>

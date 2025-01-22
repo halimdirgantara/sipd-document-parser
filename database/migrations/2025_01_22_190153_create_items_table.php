@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('sub_activity_id')->constrained('sub_activities')->onDelete('restrict');
             $table->string('account_code');
             $table->string('name');
+            $table->text('specification')->nullable();
             $table->integer('quantity');
             $table->string('unit');
             $table->decimal('price', 20, 2);

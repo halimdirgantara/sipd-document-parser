@@ -118,25 +118,73 @@ class Upload extends Component
 
     protected function parseItems($text, $subActivityId)
     {
-        // Updated regex pattern to capture any item name followed by specifications
-        preg_match_all('/([^:\n]+)\s+Spesifikasi : ([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*\w+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $text, $matches, PREG_SET_ORDER);
-
-        foreach ($matches as $match) {
-            // Extract the account code from the context
-            preg_match('/(\d+\.\d+\.\d+\.\d+\.\d+)/', $text, $codeMatch);
+        // First, split the text into sections by account code
+        preg_match_all('/(\d+\.\d+\.\d+\.\d+\.\d+)[^\n]*\n(?:(?!\d+\.\d+\.\d+\.\d+\.\d+)[\s\S])*?(?=\d+\.\d+\.\d+\.\d+\.\d+|\z)/m', $text, $sections, PREG_SET_ORDER);
+        
+        foreach ($sections as $section) {
+            $fullText = $section[0];
+            $accountCode = $section[1];
             
-            Item::create([
-                'sub_activity_id' => $subActivityId,
-                'account_code' => $codeMatch[1] ?? '',
-                'name' => trim($match[1]),  // Now using the item name instead of specification
-                'specification' => trim($match[2]), // Adding specification as a separate field
-                'quantity' => (int) $match[3],
-                'unit' => $match[4],
-                'price' => $this->cleanAmount($match[5]),
-                'tax' => $this->cleanAmount($match[7]),
-                'total' => $this->cleanAmount($match[5]) * (int) $match[3],
-            ]);
+            // Regular items pattern (with tax)
+            preg_match_all('/([^:\n]+?)\s+Spesifikasi : ([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*[^0-9\n]+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches1, PREG_SET_ORDER);
+            
+            // Perjalanan dinas pattern (handles multiline specifications and different price format)
+            preg_match_all('/([^:\n]+?)\s+Spesifikasi : ([^0-9]+?)(\d+)\s+(\w+\s*\/\s*\w+)\s+([\d,.]+,\d+)\s+0\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches2, PREG_SET_ORDER);
+            
+            // Process regular items
+            foreach ($matches1 as $match) {
+                $this->createItem($match, $accountCode, $subActivityId, true);
+            }
+            
+            // Process perjalanan dinas items
+            foreach ($matches2 as $match) {
+                $name = trim($match[1]);
+                if (strpos($name, '[ # ]') !== false || strpos($name, '[ - ]') !== false) {
+                    continue;
+                }
+                
+                $price = $this->cleanAmount($match[5]);
+                $quantity = (int) $match[3];
+                $total = $price * $quantity;
+                
+                Item::create([
+                    'sub_activity_id' => $subActivityId,
+                    'account_code' => $accountCode,
+                    'name' => $name,
+                    'specification' => trim($match[2]),
+                    'quantity' => $quantity,
+                    'unit' => trim($match[4]),
+                    'price' => $price,
+                    'tax' => 0,
+                    'total' => $total,
+                ]);
+            }
         }
+    }
+
+    protected function createItem($match, $accountCode, $subActivityId, $hasTax)
+    {
+        $name = trim($match[1]);
+        // Skip if the line contains "[ # ]" or "[ - ]" as these are headers
+        if (strpos($name, '[ # ]') !== false || strpos($name, '[ - ]') !== false) {
+            return;
+        }
+        
+        $price = $this->cleanAmount($hasTax ? $match[5] : $match[5]);
+        $quantity = (int) $match[3];
+        $baseTotal = $price * $quantity;
+        
+        Item::create([
+            'sub_activity_id' => $subActivityId,
+            'account_code' => $accountCode,
+            'name' => $name,
+            'specification' => trim($match[2]),
+            'quantity' => $quantity,
+            'unit' => $match[4],
+            'price' => $price,
+            'tax' => $hasTax ? ($baseTotal * 11/100) : 0,
+            'total' => $hasTax ? ($baseTotal + ($baseTotal * 11/100)) : $baseTotal,
+        ]);
     }
 
     protected function cleanAmount($amount)

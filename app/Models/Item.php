@@ -11,6 +11,7 @@ class Item extends Model
         'sub_activity_id',
         'account_code',
         'name',
+        'specification',
         'quantity',
         'unit',
         'price',
