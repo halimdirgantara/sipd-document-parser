@@ -16,37 +16,49 @@ class Upload extends Component
 {
     use WithFileUploads;
 
-    #[Validate('required|mimes:pdf|max:10240')]
-    public $document;
+    #[Validate([
+        'documents' => 'required|array',
+        'documents.*' => 'required|mimes:pdf|max:10240'
+    ])]
+    public $documents = [];
 
     public $processing = false;
     public $success = false;
     public $error = null;
+    public $processedCount = 0;
+    public $totalFiles = 0;
 
     public function save()
     {
         try {
             $this->processing = true;
             $this->error = null;
+            $this->processedCount = 0;
+            $this->totalFiles = count($this->documents);
 
-            $path = $this->document->storeAs('temp', $this->document->getClientOriginalName());
+            foreach ($this->documents as $document) {
+                $path = $document->storeAs('temp', $document->getClientOriginalName());
 
-            if (!$path) {
-                throw new \Exception('Failed to store the file');
+                if (!$path) {
+                    throw new \Exception('Failed to store file: ' . $document->getClientOriginalName());
+                }
+
+                $parser = new Parser();
+                $pdf = $parser->parseFile(storage_path('app/private/' . $path));
+                $text = $pdf->getText();
+
+                if ($this->parseAndStore($text)) {
+                    $this->processedCount++;
+                }
             }
 
-            $parser = new Parser();
-            $pdf = $parser->parseFile(storage_path('app/private/' . $path));
-            $text = $pdf->getText();
-
-            if ($this->parseAndStore($text)) {
-                $this->success = true;
-            }
+            $this->success = true;
 
         } catch (\Exception $e) {
             $this->error = $e->getMessage();
         } finally {
             $this->processing = false;
+            $this->documents = [];
         }
     }
 
