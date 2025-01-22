@@ -123,13 +123,13 @@ class Upload extends Component
         
         foreach ($sections as $section) {
             $fullText = $section[0];
-            $accountCode = $section[1];  // Keeps full account code like 5.1.02.04.01.0003
+            $accountCode = $section[1];
             
             // Regular items pattern (with tax)
-            preg_match_all('/([^:\n]+?)\s+Spesifikasi : ([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*[^0-9\n]+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches1, PREG_SET_ORDER);
+            preg_match_all('/([^:\n]+?)\s+Spesifikasi : Spesifikasi:\s*([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*[^0-9\n]+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches1, PREG_SET_ORDER);
             
-            // Perjalanan dinas pattern (handles multiline specifications and different price format)
-            preg_match_all('/([^:\n]+?)\s+Spesifikasi : ([^0-9]+?)(\d+)\s+(\w+\s*\/\s*\w+)\s+([\d,.]+,\d+)\s+0\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches2, PREG_SET_ORDER);
+            // Perjalanan dinas pattern
+            preg_match_all('/([^:\n]+?)\s+Spesifikasi : Spesifikasi:\s*([^0-9]+?)(\d+)\s+(\w+\s*\/\s*\w+)\s+([\d,.]+,\d+)\s+0\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches2, PREG_SET_ORDER);
             
             // Process regular items
             foreach ($matches1 as $match) {
@@ -150,8 +150,8 @@ class Upload extends Component
                 Item::create([
                     'sub_activity_id' => $subActivityId,
                     'account_code' => $accountCode,
-                    'name' => $name,  // Back to using original name from the match
-                    'specification' => trim($match[2]),
+                    'name' => $name,
+                    'specification' => trim($match[2]), // Now contains clean specification without prefix
                     'quantity' => $quantity,
                     'unit' => trim($match[4]),
                     'price' => $price,
@@ -176,8 +176,8 @@ class Upload extends Component
         Item::create([
             'sub_activity_id' => $subActivityId,
             'account_code' => $accountCode,
-            'name' => $name,  // Back to using original name from the match
-            'specification' => trim($match[2]),
+            'name' => $name,
+            'specification' => trim($match[2]), // Now contains clean specification without prefix
             'quantity' => $quantity,
             'unit' => $match[4],
             'price' => $price,
