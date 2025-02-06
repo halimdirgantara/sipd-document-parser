@@ -55,7 +55,6 @@ class Upload extends Component
             }
 
             $this->success = true;
-
         } catch (\Exception $e) {
             $this->error = $e->getMessage();
         } finally {
@@ -125,56 +124,30 @@ class Upload extends Component
         ]);
 
         // Parse items
-        $this->parseItems($text, $subActivity->id);
+        $this->parseItems($text, 000, $subActivity->id);
 
         return true;
     }
 
-    protected function parseItems($text, $subActivityId)
-    {
-        // Keep detailed account code but simplify section matching
-        preg_match_all('/(\d+\.\d+\.\d+\.\d+\.\d+\.\d+)[^\n]*\n(?:(?!\d+\.\d+\.\d+\.\d+\.\d+)[\s\S])*?(?=\d+\.\d+\.\d+\.\d+\.\d+|\z)/m', $text, $sections, PREG_SET_ORDER);
-        
-        foreach ($sections as $section) {
-            $fullText = $section[0];
-            $accountCode = $section[1];
-            
-            // Regular items pattern (with tax)
-            preg_match_all('/([^:\n]+?)\s+Spesifikasi : Spesifikasi:\s*([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*[^0-9\n]+)?)\s+([\d,.]+,\d+)\s+(\d+)\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches1, PREG_SET_ORDER);
-            
-            // Perjalanan dinas pattern
-            preg_match_all('/([^:\n]+?)\s+Spesifikasi : Spesifikasi:\s*([^0-9]+?)(\d+)\s+(\w+\s*\/\s*\w+)\s+([\d,.]+,\d+)\s+0\s*%\s*Rp\.\s*([\d,.]+,\d+)/s', $fullText, $matches2, PREG_SET_ORDER);
-            
-            // Process regular items
-            foreach ($matches1 as $match) {
-                $this->createItem($match, $accountCode, $subActivityId, true);
-            }
-            
-            // Process perjalanan dinas items
-            foreach ($matches2 as $match) {
-                $name = trim($match[1]);
-                if (strpos($name, '[ # ]') !== false || strpos($name, '[ - ]') !== false) {
-                    continue;
-                }
-                
-                $price = $this->cleanAmount($match[5]);
-                $quantity = (int) $match[3];
-                $total = $price * $quantity;
-                
-                Item::create([
-                    'sub_activity_id' => $subActivityId,
-                    'account_code' => $accountCode,
-                    'name' => $name,
-                    'specification' => trim($match[2]), // Now contains clean specification without prefix
-                    'quantity' => $quantity,
-                    'unit' => trim($match[4]),
-                    'price' => $price,
-                    'tax' => 0,
-                    'total' => $total,
-                ]);
+    protected function parseItems($text, $accountCode, $subActivityId)
+{
+    // Regular items with 11% tax
+    $patternWithTax = '/(?:^|\n)([^:\n]+?)\s*Spesifikasi\s*:\s*([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*\w+)?)\s+([\d,.]+)\s+11\s*%\s*Rp\.\s*([\d,.]+)/m';
+
+    // Items with 0% tax (like food and beverages)
+    $patternNoTax = '/(?:^|\n)([^:\n]+?)\s*Spesifikasi\s*:\s*([^\n]+)\s+(\d+)\s+(\w+(?:\s*\/\s*\w+)?)\s+([\d,.]+)\s+0\s*%\s*Rp\.\s*([\d,.]+)/m';
+
+    // Special items (like computer supplies)
+    $patternSpecial = '/(?:^|\n)([^:\n]+?)\s*Spesifikasi\s*:\s*([^\n]+)\s+(\d+)\s+(\w+)\s+([\d,.]+)\s+(?:11|0)\s*%\s*Rp\.\s*([\d,.]+)/m';
+
+    foreach ([$patternWithTax, $patternNoTax, $patternSpecial] as $pattern) {
+        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $this->createItem($match, $accountCode, $subActivityId, strpos($pattern, '11') !== false);
             }
         }
     }
+}
 
     protected function createItem($match, $accountCode, $subActivityId, $hasTax)
     {
@@ -182,11 +155,11 @@ class Upload extends Component
         if (strpos($name, '[ # ]') !== false || strpos($name, '[ - ]') !== false) {
             return;
         }
-        
+
         $price = $this->cleanAmount($hasTax ? $match[5] : $match[5]);
         $quantity = (int) $match[3];
         $baseTotal = $price * $quantity;
-        
+
         Item::create([
             'sub_activity_id' => $subActivityId,
             'account_code' => $accountCode,
@@ -195,8 +168,8 @@ class Upload extends Component
             'quantity' => $quantity,
             'unit' => $match[4],
             'price' => $price,
-            'tax' => $hasTax ? ($baseTotal * 11/100) : 0,
-            'total' => $hasTax ? ($baseTotal + ($baseTotal * 11/100)) : $baseTotal,
+            'tax' => $hasTax ? ($baseTotal * 11 / 100) : 0,
+            'total' => $hasTax ? ($baseTotal + ($baseTotal * 11 / 100)) : $baseTotal,
         ]);
     }
 
